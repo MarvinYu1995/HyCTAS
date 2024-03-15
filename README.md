@@ -24,11 +24,6 @@ Highlights:
 
 ## Results
 <p align="center">
-  <img src="images/search.png" alt="intro" width="800"/></br>
-  <span align="center">HyCTAS search results</span>
-</p>
-
-<p align="center">
   <img src="images/hrtnet.png" alt="intro" width="800"/></br>
   <span align="center">HyCTAS models</span>
 </p>
