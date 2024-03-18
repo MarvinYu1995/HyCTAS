@@ -1,5 +1,12 @@
 # HyCTAS: Real-Time Image Segmentation via Hybrid Convolutional-Transformer Architecture Search
 
+<div align="center">
+
+<h2><a href="https://arxiv.org/abs/2403.10413">HyCTAS: Real-Time Image Segmentation via Hybrid Convolutional-Transformer Architecture Search</a></h2>
+
+[Hongyuan Yu](https://hongyuanyu.github.io/), [Cheng Wan](https://jornywan.github.io/), [Mengchen Liu](https://scholar.google.com/citations?user=cOPQtYgAAAAJ&hl=zh-CN), [Dongdong Chen](https://scholar.google.com/citations?user=sYKpKqEAAAAJ&hl=en&oi=ao), [Bin Xiao](https://scholar.google.com/citations?user=t5HZdzoAAAAJ&hl=en&oi=ao) and [Xiyang Dai](https://scholar.google.com/citations?user=QC8RwcoAAAAJ&hl=en&oi=ao)
+
+[![Paper](https://img.shields.io/badge/cs.CV-2403.06977-b31b1b?logo=arxiv&logoColor=red)](https://arxiv.org/abs/2403.10413)
 
 ## Overview
 
@@ -78,4 +85,19 @@ cd train
 * Start the evaluation process:
 ```bash
 CUDA_VISIBLE_DEVICES=0 python test.py
+```
+
+## Cite
+
+If you find this repository useful, please use the following BibTeX for citation.
+
+```latex
+@misc{yu2024realtime,
+      title={Real-Time Image Segmentation via Hybrid Convolutional-Transformer Architecture Search}, 
+      author={Hongyuan Yu and Cheng Wan and Mengchen Liu and Dongdong Chen and Bin Xiao and Xiyang Dai},
+      year={2024},
+      eprint={2403.10413},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+}
 ```
