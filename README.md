@@ -64,7 +64,82 @@ bash install.sh
 * Put the [file of image list](tools/datasets/cityscapes/) into where you save the dataset.
 
 
-### 1. Train from scratch
+### 1. Search
+
+#### 1.1 Pretrain the supernet
+Before architecture search, pretrain the multi-branch supernet to obtain shared weights, enabling fast proxy evaluation of candidate mIoU and latency.
+
+- Change to the search directory:
+```bash
+cd search
+```
+
+- Configure dataset path and key training/search parameters:
+  - Set `C.dataset_path` in [search/config_search.py](search/config_search.py:29) to the Cityscapes root, and ensure `train_source`/`eval_source` point to the correct file lists.
+  - Common knobs (tune per hardware/budget):
+    - [search/config_search.py](search/config_search.py:86) `C.Fch` (filter multiplier / base channels)
+    - [search/config_search.py](search/config_search.py:88) `C.width_mult_list` (available width ratios)
+    - [search/config_search.py](search/config_search.py:102) `C.image_height` and [search/config_search.py](search/config_search.py:103) `C.image_width` (train/eval input size)
+    - [search/config_search.py](search/config_search.py:104) `C.nepochs` (epochs)
+    - [search/config_search.py](search/config_search.py:96) `C.batch_size` (batch size)
+
+- Launch supernet pretraining (example; adjust epochs/bs/save as needed):
+```bash
+CUDA_VISIBLE_DEVICES=0 python train_search.py --epochs 120 --bs 4 --save ep120_sk50_jp40_bs4
+```
+
+- Outputs:
+  - Logs and sampled architectures: `../OUTPUT/ep120_sk50_jp40_bs4/`
+  - Shared weights: `../OUTPUT/ep120_sk50_jp40_bs4/weights.pth.tar` (pass via `--resume` during search)
+
+Notes:
+- The script randomly samples 1/2/3-branch subnets per step to balance multi-branch coverage; OHEM loss and AMP mixed precision are enabled in [search/train_search.py](search/train_search.py:260).
+- If memory is tight, reduce [search/config_search.py](search/config_search.py:96) `C.batch_size` or the input size.
+
+#### 1.2 Multi-objective architecture search per branch count (EA/NSGA-II)
+With the supernet trained, run evolutionary search separately for 1-, 2-, and 3-branch spaces. Optimize mIoU jointly with a secondary objective (latency/FLOPs/params) to obtain an approximate non-dominated set (approximate Pareto front).
+
+- 1-branch search (latency-focused example):
+```bash
+CUDA_VISIBLE_DEVICES=0 python ea_pymoo1path.py \
+  --resume ../OUTPUT/ep120_sk50_jp40_bs4/weights.pth.tar \
+  --save_dir ./search_1path_latency \
+  --target 0
+```
+
+- 2-branch search (latency-focused example):
+```bash
+CUDA_VISIBLE_DEVICES=0 python ea_pymoo2path.py \
+  --resume ../OUTPUT/ep120_sk50_jp40_bs4/weights.pth.tar \
+  --save_dir ./search_2path_latency \
+  --target 0
+```
+
+- 3-branch search (latency-focused example):
+```bash
+CUDA_VISIBLE_DEVICES=0 python ea_pymoo3path.py \
+  --resume ../OUTPUT/ep120_sk50_jp40_bs4/weights.pth.tar \
+  --save_dir ./search_3path_latency \
+  --target 0
+```
+
+Parameters:
+- `--resume` points to the shared supernet weights from step 1 (`weights.pth.tar`).
+- `--save_dir` is the output folder where `N.json` candidate files are written (each contains ops/paths/downs/widths/lasts and mIoU, latency, FLOPs, params).
+- `--target` chooses the secondary objective paired with mIoU:
+  - `0` latency (default; mIoU↑ and latency↓)
+  - `1` FLOPs (mIoU↑ and FLOPs↓)
+  - `2` params (mIoU↑ and Params↓)
+
+Details & constraints:
+- BN statistics are recalibrated before evaluation to stabilize proxy estimates; see `set_bn` in [search/ea_pymoo1path.py](search/ea_pymoo1path.py:382) and [search/ea_pymoo2path.py](search/ea_pymoo2path.py:389).
+- Latency range filtering: each script sets `fps_low`/`fps_high`; candidates out of range are dropped to speed up search.
+- Topology constraints include distinct down-sample locations across branches, forbidding skip at down-sample positions, and ensuring the last layer is not a down-sample; see validity checks.
+- Use the corresponding `ea_pymoo{1,2,3}path.py` per branch count; together they cover different budgets as an approximate non-dominated set.
+
+After search:
+- Select candidates from `save_dir` that meet deployment budgets (e.g., latency cap/parameter limit). Use the architecture description for downstream training-from-scratch and export.
+### 2. Train from scratch
 * `cd HyCTAS/train`
 * Set the dataset path via  `ln -s $YOUR_DATA_PATH ../DATASET`
 * Set the output path via `mkdir ../OUTPUT`
@@ -75,7 +150,7 @@ NGPUS=8
 python -m torch.distributed.launch --nproc_per_node=$NGPUS train.py --world_size $NGPUS --seed 12367 --config ../configs/cityscapes/semantic.yaml
 ```
 
-### 2. Evaluation
+### 3. Evaluation
 We provide training models and logs, which can be downloaded from [Google Drive](https://drive.google.com/drive/folders/10jR2H5JwuJq9UuPGWutyw50MHESBZZ3w?usp=sharing).
 
 ```bash
